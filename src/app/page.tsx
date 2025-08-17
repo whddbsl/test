@@ -1,103 +1,134 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState } from "react";
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+export default function HomePage() {
+    const [url, setUrl] = useState("");
+    const [format, setFormat] = useState("mp4"); // 'mp4' 또는 'mp3' 상태 추가
+    const [error, setError] = useState("");
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!url) {
+            setError("다운로드할 유튜브 영상 URL을 입력해주세요.");
+            return;
+        }
+        if (!url.includes("youtube.com/") && !url.includes("youtu.be/")) {
+            setError("올바른 유튜브 영상 URL이 아닙니다.");
+            return;
+        }
+
+        setError("");
+        setIsDownloading(true);
+
+        try {
+            // API 요청 시 선택한 format을 쿼리 파라미터로 함께 보냄
+            const res = await fetch(
+                `/api/download?url=${encodeURIComponent(url)}&format=${format}`
+            );
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "다운로드에 실패했습니다.");
+            }
+
+            const contentDisposition = res.headers.get("Content-Disposition");
+            // 기본 파일 이름을 선택한 포맷에 따라 동적으로 설정
+            let filename = format === "mp4" ? "video.mp4" : "audio.mp3";
+            if (contentDisposition) {
+                const filenameMatch =
+                    contentDisposition.match(/filename="(.+?)"/);
+                if (filenameMatch && filenameMatch.length > 1) {
+                    filename = decodeURIComponent(escape(filenameMatch[1]));
+                }
+            }
+
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            a.remove();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <div
+            style={{
+                fontFamily: "sans-serif",
+                maxWidth: "500px",
+                margin: "50px auto",
+                padding: "20px",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+            }}
+        >
+            <h1>유튜브 다운로더</h1>
+            <p>다운로드하려는 유튜브 영상의 URL을 입력하세요.</p>
+            <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                style={{
+                    width: "100%",
+                    padding: "10px",
+                    boxSizing: "border-box",
+                    marginBottom: "10px",
+                }}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+
+            {/* --- 포맷 선택 UI 추가 --- */}
+            <div style={{ marginBottom: "20px", display: "flex", gap: "20px" }}>
+                <label>
+                    <input
+                        type="radio"
+                        name="format"
+                        value="mp4"
+                        checked={format === "mp4"}
+                        onChange={() => setFormat("mp4")}
+                    />
+                    MP4 (영상)
+                </label>
+                <label>
+                    <input
+                        type="radio"
+                        name="format"
+                        value="mp3"
+                        checked={format === "mp3"}
+                        onChange={() => setFormat("mp3")}
+                    />
+                    MP3 (음원)
+                </label>
+            </div>
+            {/* ----------------------- */}
+
+            <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                style={{
+                    width: "100%",
+                    padding: "10px",
+                    background: isDownloading ? "#ccc" : "#0070f3",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                }}
+            >
+                {isDownloading ? "다운로드 중..." : "다운로드"}
+            </button>
+            {error && (
+                <p style={{ color: "red", marginTop: "10px" }}>{error}</p>
+            )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    );
 }
