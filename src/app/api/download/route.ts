@@ -37,7 +37,9 @@ export async function GET(request: Request) {
                 )}.mp3"`
             );
             headers.set("Content-Type", "audio/mpeg");
-            return new Response(audioStream as any, { headers });
+            return new Response(audioStream as unknown as ReadableStream, {
+                headers,
+            });
         } else {
             // MP4(영상) 다운로드 로직 (기존과 동일)
             const videoStream = ytdl(url, {
@@ -52,15 +54,17 @@ export async function GET(request: Request) {
                 )}.mp4"`
             );
             headers.set("Content-Type", "video/mp4");
-            return new Response(videoStream as any, { headers });
+            return new Response(videoStream as unknown as ReadableStream, {
+                headers,
+            });
         }
         // -------------------------
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error(error);
         return NextResponse.json(
             {
                 error: "영상을 처리하는 중 오류가 발생했습니다.",
-                details: error.message,
+                details: error instanceof Error ? error.message : String(error),
             },
             { status: 500 }
         );

@@ -53,8 +53,6 @@ export default function HomePage() {
             a.click();
             window.URL.revokeObjectURL(downloadUrl);
             a.remove();
-        } catch (err: any) {
-            setError(err.message);
         } finally {
             setIsDownloading(false);
         }
